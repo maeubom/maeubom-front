@@ -1,115 +1,204 @@
-import Image from "next/image";
-import localFont from "next/font/local";
+import React, { useState, useRef, useCallback } from 'react';
+import { Video, Mic, Camera, StopCircle, Download } from 'lucide-react';
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+const SeparateMediaRecorder = () => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedVideo, setRecordedVideo] = useState(null);
+  const [recordedAudio, setRecordedAudio] = useState(null);
+  
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const videoRecorderRef = useRef(null);
+  const audioRecorderRef = useRef(null);
+  const videoChunksRef = useRef([]);
+  const audioChunksRef = useRef([]);
 
-export default function Home() {
+  // 미디어 스트림 시작
+  const startStream = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+      
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      // 비디오와 오디오 트랙 분리
+      const videoStream = new MediaStream([stream.getVideoTracks()[0]]);
+      const audioStream = new MediaStream([stream.getAudioTracks()[0]]);
+
+      // 비디오 레코더 설정
+      videoRecorderRef.current = new MediaRecorder(videoStream, {
+        mimeType: 'video/webm;codecs=vp9'
+      });
+
+      // 오디오 레코더 설정
+      audioRecorderRef.current = new MediaRecorder(audioStream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+
+      // 비디오 데이터 수집
+      videoRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          videoChunksRef.current.push(e.data);
+        }
+      };
+
+      // 오디오 데이터 수집
+      audioRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      // 녹화 완료 시 처리
+      videoRecorderRef.current.onstop = () => {
+        const videoBlob = new Blob(videoChunksRef.current, { type: 'video/webm' });
+        // todo: 바이너리 데이터를 서버로 전송
+
+        setRecordedVideo(videoBlob);
+      };
+
+      audioRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        // todo: 바이너리 데이터를 서버로 전송
+        setRecordedAudio(audioBlob);
+      };
+
+    } catch (err) {
+      console.error("미디어 스트림 에러:", err);
+    }
+  };
+
+  // 녹화 시작
+  const startRecording = () => {
+    videoChunksRef.current = [];
+    audioChunksRef.current = [];
+    
+    videoRecorderRef.current?.start();
+    audioRecorderRef.current?.start();
+    setIsRecording(true);
+  };
+
+  // 녹화 중지
+  const stopRecording = () => {
+    videoRecorderRef.current?.stop();
+    audioRecorderRef.current?.stop();
+    setIsRecording(false);
+  };
+
+  // 비디오 다운로드
+  const downloadVideo = () => {
+    if (recordedVideo) {
+      const url = URL.createObjectURL(recordedVideo);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recorded-video-${new Date().getTime()}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  // 오디오 다운로드
+  const downloadAudio = () => {
+    if (recordedAudio) {
+      const url = URL.createObjectURL(recordedAudio);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recorded-audio-${new Date().getTime()}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  // 컴포넌트 마운트 시 스트림 시작
+  React.useEffect(() => {
+    startStream();
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   return (
-    <div
-      className={`${geistSans.variable} ${geistMono.variable} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <div className="flex flex-col items-center gap-4 p-4">
+      <div className="relative w-full max-w-2xl rounded-lg overflow-hidden bg-gray-100">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full"
         />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/pages/index.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+      </div>
+      
+      <div className="flex gap-4">
+        {!isRecording ? (
+          <button
+            onClick={startRecording}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+          >
+            <Camera className="w-5 h-5" />
+            녹화 시작
+          </button>
+        ) : (
+          <button
+            onClick={stopRecording}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+          >
+            <StopCircle className="w-5 h-5" />
+            녹화 중지
+          </button>
+        )}
+        
+        {recordedVideo && (
+          <button
+            onClick={downloadVideo}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            <Video className="w-5 h-5" />
+            비디오 다운로드
+          </button>
+        )}
+        
+        {recordedAudio && (
+          <button
+            onClick={downloadAudio}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+          >
+            <Mic className="w-5 h-5" />
+            오디오 다운로드
+          </button>
+        )}
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {recordedVideo && (
+        <div className="w-full max-w-2xl mt-4">
+          <h3 className="text-lg font-semibold mb-2">녹화된 비디오:</h3>
+          <video
+            controls
+            src={URL.createObjectURL(recordedVideo)}
+            className="w-full rounded-lg"
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      )}
+
+      {recordedAudio && (
+        <div className="w-full max-w-2xl mt-4">
+          <h3 className="text-lg font-semibold mb-2">녹화된 오디오:</h3>
+          <audio
+            controls
+            src={URL.createObjectURL(recordedAudio)}
+            className="w-full"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default SeparateMediaRecorder;

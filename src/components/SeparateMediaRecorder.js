@@ -1,17 +1,22 @@
 import React, { useState, useRef } from 'react';
-import { Video, Mic, Camera, StopCircle, Download } from 'lucide-react';
+import { Video, Mic, Camera, StopCircle, Download, Smile } from 'lucide-react';
+import { analyzeVideoEmotion } from '../API.js'
+import { useRouter } from 'next/router';
+import axios from "axios"
 
 const SeparateMediaRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedVideo, setRecordedVideo] = useState(null);
   const [recordedAudio, setRecordedAudio] = useState(null);
-  
+  const [analysisResult, setAnalysisResult] = useState(null);
+
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const videoRecorderRef = useRef(null);
   const audioRecorderRef = useRef(null);
   const videoChunksRef = useRef([]);
   const audioChunksRef = useRef([]);
+  const router = useRouter();
 
   // 미디어 스트림 시작
   const startStream = async () => {
@@ -20,7 +25,7 @@ const SeparateMediaRecorder = () => {
         video: true,
         audio: true
       });
-      
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -28,7 +33,7 @@ const SeparateMediaRecorder = () => {
 
       const videoStream = new MediaStream([stream.getVideoTracks()[0]]);
       const audioStream = new MediaStream([stream.getAudioTracks()[0]]);
-
+          
       videoRecorderRef.current = new MediaRecorder(videoStream, {
         mimeType: 'video/webm;codecs=vp9'
       });
@@ -100,6 +105,32 @@ const SeparateMediaRecorder = () => {
     }
   };
 
+  const analyzeEmotion = async () => {
+    if (recordedAudio) {
+      try {
+        const formData = new FormData();
+        formData.append("file", recordedAudio, "recorded-audio.webm");
+  
+        // 따로 빼놓은 analyzeVideoEmotion 함수를 사용해 감정 분석 요청을 보냅니다.
+        const response = await analyzeVideoEmotion(recordedAudio);
+  
+        if (response && response.result) {
+          setAnalysisResult(response.result); // 서버에서 감정 분석 결과를 가져옴
+  
+          // 감정 분석 결과 페이지로 이동
+          router.push({
+            pathname: '/emotionResult',
+            query: { analysisResult: response.result },
+          });
+        } else {
+          console.error("Error: No analysis result returned");
+        }
+      } catch (error) {
+        console.error("Error analyzing emotion:", error);
+      }
+    }
+  };
+
   React.useEffect(() => {
     startStream();
     return () => {
@@ -159,7 +190,25 @@ const SeparateMediaRecorder = () => {
             오디오 다운로드
           </button>
         )}
+
+        {recordedAudio && (
+          <button
+            onClick={analyzeEmotion}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+          >
+            <Smile className="w-5 h-5" />
+            감정 분석하기
+          </button>
+        )}
       </div>
+
+      {/* 감정 분석 결과 출력 */}
+      {analysisResult && (
+        <div className="mt-4 p-4 bg-gray-100 rounded-lg text-center">
+          <h3 className="text-lg font-semibold">감정 분석 결과:</h3>
+          <p>{analysisResult}</p>
+        </div>
+      )}
     </div>
   );
 };

@@ -2,12 +2,15 @@ import axios from "axios";
 
 // axios 인스턴스 생성
 const api = axios.create({
-  baseURL: "/v1/api",  // 공통 URL 부분 설정
+  // baseURL: "http://192.168.0.61:8000/v1/api",  // 공통 URL 부분 설정
+  baseURL: "http://localhost:3000/v1/api",  // 공통 URL 부분 설정
   headers: {
-    "Content-Type": "multipart/form-data",
+    "Content-Type": "multipart/form-data"
+    // 'Content-Type': 'application/json',
   },
 });
 
+export default api;
 // 비디오 파일 감정 분석 요청
 export const analyzeVideoEmotion = async (file) => {
   const formData = new FormData();

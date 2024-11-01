@@ -11,6 +11,11 @@ function HomePage() {
 
   return (
     <div className="max-w-7xl mx-auto p-8">
+      {/* Top Image */}
+      <div className="flex justify-center mb-8">
+        <img src="/image/emotion.png" alt="Emotion Icon" className="w-24 h-24" />
+      </div>
+
       {/* Introduction Section */}
       <header className="text-center mb-16">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">

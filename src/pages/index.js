@@ -62,10 +62,25 @@ const SeparateMediaRecorder = () => {
         setRecordedVideo(videoBlob);
       };
 
-      audioRecorderRef.current.onstop = () => {
+      audioRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         // todo: 바이너리 데이터를 서버로 전송
         setRecordedAudio(audioBlob);
+
+        // 서버로 오디오 파일 전송
+        const formData = new FormData();
+        formData.append('file', audioBlob);
+
+        try {
+          const response = await fetch('/vl/api/audio-to-text', {
+            method: 'POST',
+            body: formData,
+          });
+          const data = await response.json();
+          console.log("변환된 텍스트:", data.text);
+        } catch (error) {
+          console.error("오디오를 서버로 보내는 중 오류 발생:", error);
+        }
       };
 
     } catch (err) {

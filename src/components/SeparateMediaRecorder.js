@@ -59,9 +59,35 @@ const SeparateMediaRecorder = () => {
         setRecordedVideo(videoBlob);
       };
 
-      audioRecorderRef.current.onstop = () => {
+      audioRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setRecordedAudio(audioBlob);
+
+        // 서버로 오디오 파일 전송
+        const formData = new FormData();
+        formData.append('file', audioBlob);
+
+        try {
+          const response = await fetch('/v1/api/audio-to-text', {
+            method: 'POST',
+            body: formData,
+          });
+          const data = await response.json();
+          console.log("변환된 텍스트:", data.text);
+
+           // 요약 요청
+          const summaryResponse = await fetch('/v1/api/text-summary', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: data.text }),
+          });
+          const summaryData = await summaryResponse.json();
+          console.log("요약된 텍스트:", summaryData.summary);
+        } catch (error) {
+          console.error("오디오를 서버로 보내는 중 오류 발생:", error);
+        }
       };
     } catch (err) {
       console.error("미디어 스트림 에러:", err);

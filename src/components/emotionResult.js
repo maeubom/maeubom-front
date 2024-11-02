@@ -1,12 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { createSummary, generateImage, createMusicBinary, createText } from 'API.js'; // 필요한 API 불러오기
 import Image from 'next/image';
+import { useRouter } from 'next/router';
 
-const EmotionResultPage = ({ analysisResult }) => {
+const EmotionResultPage = () => {
+  const [analysisResult, setAnalysisResult] = useState(null);
   const [summary, setSummary] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [musicUrl, setMusicUrl] = useState('');
   const [quote, setQuote] = useState('');
+  const router = useRouter();
+
+  useEffect(() => {
+    const savedResult = localStorage.getItem('emotionAnalysis');
+    if (savedResult) {
+      setAnalysisResult(JSON.parse(savedResult));
+    } else {
+      router.push('/'); // 결과가 없으면 메인 페이지로 이동
+    }
+  }, []);
+
+   // analysisResult가 있을 때만 API 요청 실행
+   useEffect(() => {
+    if (analysisResult) {
+      fetchSummary();
+      fetchImage();
+      fetchMusic();
+      fetchQuote();
+    }
+  }, [analysisResult]);
 
   // 감정 요약 생성
   const fetchSummary = async () => {

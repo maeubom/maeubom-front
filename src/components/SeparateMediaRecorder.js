@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Video, Mic, Camera, StopCircle, Download, Smile } from 'lucide-react';
 import { analyzeVideoEmotion } from '../API.js'
 import { useRouter } from 'next/router';
@@ -54,7 +54,7 @@ const SeparateMediaRecorder = () => {
         }
       };
 
-      videoRecorderRef.current.onstop = () => {
+      videoRecorderRef.current.onstop = async () => {
         const videoBlob = new Blob(videoChunksRef.current, { type: 'video/webm' });
         setRecordedVideo(videoBlob);
       };
@@ -93,6 +93,10 @@ const SeparateMediaRecorder = () => {
       console.error("미디어 스트림 에러:", err);
     }
   };
+
+  useEffect(() => {
+    startStream();
+  }, []);
 
   const startRecording = () => {
     videoChunksRef.current = [];
@@ -137,17 +141,13 @@ const SeparateMediaRecorder = () => {
         const formData = new FormData();
         formData.append("file", recordedAudio, "recorded-audio.webm");
   
-        // 따로 빼놓은 analyzeVideoEmotion 함수를 사용해 감정 분석 요청을 보냅니다.
-        const response = await analyzeVideoEmotion(recordedAudio);
+        const response = await analyzeVideoEmotion(formData);
   
         if (response && response.result) {
-          setAnalysisResult(response.result); // 서버에서 감정 분석 결과를 가져옴
-  
-          // 감정 분석 결과 페이지로 이동
-          router.push({
-            pathname: '/emotionResult',
-            query: { analysisResult: response.result },
-          });
+          // localStorage에 결과 저장
+          localStorage.setItem('emotionAnalysis', JSON.stringify(response.result));
+          // 페이지 이동
+          router.push('/emotionResult');
         } else {
           console.error("Error: No analysis result returned");
         }
@@ -156,15 +156,6 @@ const SeparateMediaRecorder = () => {
       }
     }
   };
-
-  React.useEffect(() => {
-    startStream();
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
 
   return (
     <div className="flex flex-col items-center gap-4 p-4">

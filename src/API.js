@@ -3,7 +3,7 @@ import axios from "axios";
 // axios 인스턴스 생성
 const api = axios.create({
   // baseURL: "http://192.168.0.61:8000/v1/api",  // 공통 URL 부분 설정
-  baseURL: "http://localhost:3000/v1/api",  // 공통 URL 부분 설정
+  baseURL: "http://localhost:8000/v1/api",  // 공통 URL 부분 설정
   headers: {
     "Content-Type": "multipart/form-data"
     // 'Content-Type': 'application/json',

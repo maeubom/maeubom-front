@@ -72,12 +72,23 @@ const SeparateMediaRecorder = () => {
         formData.append('file', audioBlob);
 
         try {
-          const response = await fetch('/vl/api/audio-to-text', {
+          const response = await fetch('/v1/api/audio-to-text', {
             method: 'POST',
             body: formData,
           });
           const data = await response.json();
           console.log("변환된 텍스트:", data.text);
+
+           // 요약 요청
+          const summaryResponse = await fetch('/v1/api/text-summary', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: data.text }),
+          });
+          const summaryData = await summaryResponse.json();
+          console.log("요약된 텍스트:", summaryData.summary);
         } catch (error) {
           console.error("오디오를 서버로 보내는 중 오류 발생:", error);
         }
